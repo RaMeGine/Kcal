@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kalorien &amp; Energie</title>
+<style>
+:root{--tx:#13203a;--mut:#4d5a73;--glass:rgba(255,255,255,.42);--gb:rgba(255,255,255,.7);--sh:0 8px 32px rgba(40,55,110,.14);--inp:rgba(255,255,255,.55);--in:#d97706;--out:#0d9488;--ac:#13203a;--acx:#fff;--bg:linear-gradient(135deg,#bcd0f7,#e3d0f5 50%,#c3ecdf);--b1:#8fb4ff;--b2:#ffb8d9;--b3:#8ee6cf;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--tx:#eaf0fb;--mut:#a3b0c9;--glass:rgba(255,255,255,.08);--gb:rgba(255,255,255,.16);--sh:0 8px 32px rgba(0,0,0,.35);--inp:rgba(255,255,255,.1);--in:#fbbf24;--out:#4fd8c8;--ac:#eaf0fb;--acx:#0f1630;--bg:linear-gradient(135deg,#0d1430,#1a1238 55%,#0b2630);--b1:#3b5bdb;--b2:#a83279;--b3:#0f8f7e;color-scheme:dark}}
+:root[data-theme="dark"]{--tx:#eaf0fb;--mut:#a3b0c9;--glass:rgba(255,255,255,.08);--gb:rgba(255,255,255,.16);--sh:0 8px 32px rgba(0,0,0,.35);--inp:rgba(255,255,255,.1);--in:#fbbf24;--out:#4fd8c8;--ac:#eaf0fb;--acx:#0f1630;--bg:linear-gradient(135deg,#0d1430,#1a1238 55%,#0b2630);--b1:#3b5bdb;--b2:#a83279;--b3:#0f8f7e;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px);min-height:100%}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);background-attachment:fixed;color:var(--tx);font:16px/1.45 "Avenir Next","Segoe UI",system-ui,sans-serif;font-variant-numeric:tabular-nums;position:relative;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(circle at 15% 12%,var(--b1) 0,transparent 38%),radial-gradient(circle at 88% 38%,var(--b2) 0,transparent 36%),radial-gradient(circle at 25% 92%,var(--b3) 0,transparent 40%);opacity:.65}
+main{position:relative;z-index:1;max-width:560px;margin:0 auto;padding:14px 14px 40px}
+.card{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(170%);backdrop-filter:blur(24px) saturate(170%);border:1px solid var(--gb);box-shadow:var(--sh),inset 0 1px 0 var(--gb);border-radius:24px;padding:18px;margin-bottom:12px}
+h2{font-size:1.05rem;margin:0 0 10px;font-weight:650}
+.mut{color:var(--mut);font-size:.88rem}
+.nav{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.nav input{flex:1;text-align:center;font-weight:600}
+input,button{font:inherit;color:var(--tx);background:var(--inp);border:1px solid var(--gb);border-radius:14px;padding:10px 12px;min-width:0;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--out);outline-offset:2px}
+.big{width:100%;font-size:2.6rem;font-weight:750;text-align:center;letter-spacing:-.02em;padding:14px;border-radius:20px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.g3 label,.gw label,.g2 label{display:block;font-size:.8rem;color:var(--mut);margin-bottom:3px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g2 .big{font-size:1.9rem;padding:12px 6px}
+.g2 input{width:100%}
+.g3 input,.gw input{width:100%}
+.gw{margin-top:10px}
+.num{font-size:2.4rem;font-weight:750;line-height:1.1;letter-spacing:-.02em}
+.row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--gb)}
+.row:first-of-type{border-top:0}
+svg{width:100%;height:auto;display:block}
+.pos{color:var(--in)}.neg{color:var(--out)}
+</style>
+</head>
+<body>
+<main>
+<div id="nav" class="nav"></div>
+<section class="card" id="entry"></section>
+<div id="stats"></div>
+</main>
+<script>
+let S={days:{}},DB=null,UID=null;
+const p2=n=>String(n).padStart(2,'0');
+const iso=d=>d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
+const add=(s,n)=>{const d=new Date(s+'T12:00:00');d.setDate(d.getDate()+n);return iso(d)};
+const R=n=>Math.round(n).toLocaleString('de-DE');
+const R1=n=>n.toLocaleString('de-DE',{maximumFractionDigits:1,minimumFractionDigits:1});
+const sg=n=>(n>0?'+':n<0?'−':'')+R(Math.abs(n));
+const $=id=>document.getElementById(id);
+const num=id=>{const v=parseFloat(($(id).value||'').replace(',','.'));return isNaN(v)?null:v};
+let cur=iso(new Date());
+
+const day=(s,c)=>{let d=S.days[s];if(!d){d={kcal:null,burn:null,p:null,c:null,f:null,weight:null};if(c)S.days[s]=d}return d};
+const ok=d=>d.kcal>0;
+function avgIn(s){let t=0,n=0,tp=0,np=0;for(let i=0;i<7;i++){const d=day(add(s,-i));if(ok(d)){t+=d.kcal;n++;if(d.p>0){tp+=d.p;np++}}}return n?{v:t/n,n,p:np?tp/np:null}:null}
+function weekBal(s){let sum=0,n=0;for(let i=0;i<7;i++){const d=day(add(s,-i));if(ok(d)&&d.burn>0){sum+=d.kcal-d.burn;n++}}return n?{sum,n,avg:sum/n}:null}
+function wTrend(s){const v=[];for(let i=0;i<7;i++){const w=day(add(s,-i)).weight;if(w)v.push(w)}return v.length?v.reduce((a,b)=>a+b)/v.length:null}
+function tdee(){
+  const pts=[];let ki=0,kn=0;
+  for(let i=20;i>=0;i--){const d=day(add(cur,-i));if(d.weight)pts.push([20-i,d.weight]);if(ok(d)){ki+=d.kcal;kn++}}
+  if(pts.length<3||pts[pts.length-1][0]-pts[0][0]<7||kn<5)return {pts:pts.length,kn};
+  const n=pts.length,mx=pts.reduce((a,p)=>a+p[0],0)/n,my=pts.reduce((a,p)=>a+p[1],0)/n;
+  let a=0,b=0;pts.forEach(p=>{a+=(p[0]-mx)*(p[1]-my);b+=(p[0]-mx)**2});
+  const slope=a/b;return {t:ki/kn-slope*7000,slope,kn};
+}
+function chart(T){
+  const pts=[];for(let i=13;i>=0;i--){const s=add(cur,-i),d=day(s);pts.push({s,k:ok(d)?d.kcal:null,avg:avgIn(s)})}
+  const vals=pts.flatMap(p=>[p.k,p.avg&&p.avg.v]).filter(v=>v!=null);
+  if(T.t)vals.push(T.t);
+  if(!vals.length)return '<p class="mut">Trag am Tagesende deine Kalorien ein, dann erscheint hier dein Verlauf.</p>';
+  const mx=Math.max(...vals)*1.12,W=340,H=130,bw=W/14,y=v=>H-v/mx*H;
+  let b='',l=[];
+  pts.forEach((p,i)=>{const x=i*bw;
+    if(p.k!=null)b+=`<rect x="${x+3}" y="${y(p.k)}" width="${bw-6}" height="${H-y(p.k)}" rx="4" fill="var(--in)" opacity="${p.s===cur?.85:.4}"/>`;
+    if(p.avg)l.push(`${(x+bw/2).toFixed(1)},${y(p.avg.v).toFixed(1)}`);
+    b+=`<text x="${x+bw/2}" y="${H+12}" text-anchor="middle" font-size="8" fill="var(--mut)">${+p.s.slice(8)}</text>`});
+  const tl=T.t?`<line x1="0" x2="${W}" y1="${y(T.t)}" y2="${y(T.t)}" stroke="var(--out)" stroke-width="1.5" stroke-dasharray="5 4"/>`:'';
+  return `<svg viewBox="0 0 ${W} ${H+16}" role="img" aria-label="Kalorien der letzten 14 Tage"><line x1="0" x2="${W}" y1="${H}" y2="${H}" stroke="var(--gb)"/>${b}${tl}<polyline points="${l.join(' ')}" fill="none" stroke="var(--tx)" stroke-width="2" stroke-linejoin="round"/></svg>
+  <p class="mut" style="margin:6px 0 0">Balken: gegessen pro Tag. Linie: 7-Tage-Durchschnitt.${T.t?' Gestrichelt: dein echter Gesamtumsatz.':''}</p>`;
+}
+function stats(){
+  const d=day(cur),a=avgIn(cur),tr=wTrend(cur),tp=wTrend(add(cur,-7)),T=tdee();
+  let h=`<section class="card"><h2>Diese Woche</h2><div class="mut">Ø gegessen pro Tag (7 Tage)</div><div class="num">${a?R(a.v):'–'} <span class="mut" style="font-size:1rem;font-weight:500">kcal</span></div>`;
+  if(a)h+=`<p class="mut" style="margin:4px 0 8px">${a.n} von 7 Tagen eingetragen${a.p?`, Ø Protein ${R(a.p)} g`:''}</p>`;
+  if(T.t){
+    h+=`<div class="row"><span>Ø Bilanz gegen echten Umsatz</span><b class="${a&&a.v>T.t?'pos':'neg'}">${a?sg(a.v-T.t)+' kcal/Tag':'–'}</b></div>`;
+    if(ok(d))h+=`<div class="row"><span>Dieser Tag</span><b class="${d.kcal>T.t?'pos':'neg'}">${sg(d.kcal-T.t)} kcal</b></div>`;
+  }
+  h+=`<div class="row"><span>Gewichtstrend (7 Tage)</span><b>${tr?R1(tr)+' kg':'–'}${tr&&tp?` <span class="mut">(${tr-tp>0?'+':'−'}${R1(Math.abs(tr-tp))})</span>`:''}</b></div></section>`;
+  const wb=weekBal(cur);
+  h+=`<section class="card"><h2>Bilanz (gegessen − verbraucht)</h2>`+(ok(d)&&d.burn>0?`<div class="row"><span>Dieser Tag</span><b class="${d.kcal>d.burn?'pos':'neg'}">${sg(d.kcal-d.burn)} kcal</b></div>`:'')+(wb?`<div class="mut" style="margin-top:6px">Letzte 7 Tage, Summe</div><div class="num ${wb.sum>0?'pos':'neg'}">${sg(wb.sum)} <span class="mut" style="font-size:1rem;font-weight:500">kcal</span></div><div class="row"><span>Ø pro Tag</span><b>${sg(wb.avg)} kcal</b></div><div class="row"><span>Entspricht etwa</span><b>${wb.sum>0?'+':'−'}${R1(Math.abs(wb.sum)/7000)} kg</b></div><p class="mut" style="margin:4px 0 0">${wb.n} von 7 Tagen mit Verbrauch eingetragen. Ein Cheat-Day fällt hier kaum ins Gewicht, wenn die Woche stimmt.</p>`:'<p class="mut">Trag gegessen und verbraucht ein, dann siehst du hier deine Wochenbilanz.</p>')+`</section>`;
+  h+=`<section class="card"><h2>Verlauf, 14 Tage</h2>${chart(T)}</section>`;
+  h+=`<section class="card"><h2>Echter Gesamtumsatz</h2>`;
+  h+=T.t?`<div class="num">${R(T.t)} <span class="mut" style="font-size:1rem;font-weight:500">kcal/Tag</span></div><p class="mut">Aus ${T.kn} eingetragenen Tagen und dem Gewichtsverlauf der letzten 21 Tage (${T.slope>0?'+':'−'}${R1(Math.abs(T.slope*7))} kg pro Woche, 7000 kcal je kg). Tage ohne Eintrag zählen nicht mit.</p>`:`<p class="mut">Dafür brauche ich in den letzten 21 Tagen mindestens 3 Gewichtseinträge über 7+ Tage und 5 Tage mit Kalorien. Aktuell: ${T.pts} Gewichte, ${T.kn} Kalorien-Tage.</p>`;
+  $('stats').innerHTML=h+`</section>`;
+}
+function render(){
+  const d=day(cur),today=iso(new Date());
+  $('nav').innerHTML=`<button onclick="go(-1)" aria-label="Vortag">‹</button><input type="date" id="dt" value="${cur}" onchange="cur=this.value||cur;render()"><button onclick="go(1)" aria-label="Folgetag">›</button>${cur!==today?'<button onclick="cur=iso(new Date());render()">Heute</button>':''}`;
+  const v=x=>x==null?'':x;
+  $('entry').innerHTML=`<h2>Tageseintrag aus Yazio</h2>
+  <div class="g2"><div><label for="k">Gegessen kcal</label><input class="big" id="k" inputmode="decimal" placeholder="kcal" value="${v(d.kcal)}" onchange="saveDay()"></div><div><label for="b">Verbraucht kcal</label><input class="big" id="b" inputmode="decimal" placeholder="kcal" value="${v(d.burn)}" onchange="saveDay()"></div></div>
+  <div class="gw"><label for="w">Gewicht kg (optional)</label><input id="w" inputmode="decimal" value="${v(d.weight)}" onchange="saveDay()"></div>`;
+  stats();
+}
+function saveDay(){
+  const d=day(cur,1);
+  d.kcal=num('k');d.burn=num('b');d.weight=num('w');
+  persist();stats();
+}
+function go(n){cur=add(cur,n);render()}
+function persist(){
+  const d=S.days[cur];
+  if(DB&&UID)DB.collection("data/users/"+UID).doc("day-"+cur).set({kcal:d.kcal,burn:d.burn,weight:d.weight}).catch(()=>{});
+}
+render();
+(async()=>{
+  try{
+    const c=window.claude;
+    const db=c&&await c.use("db"), user=c&&await c.use("user");
+    UID=user?await user.id():null;
+    if(db&&UID){
+      DB=db;
+      db.collection("data/users/"+UID).onSnapshot(snap=>{
+        const days={};
+        snap.docs.forEach(x=>{if(x.exists&&x.id.startsWith("day-"))days[x.id.slice(4)]=x.data()});
+        S.days=days;render();
+      },()=>{});
+    }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
