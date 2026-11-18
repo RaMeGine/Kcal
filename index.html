@@ -131,11 +131,10 @@ async function load(){
   render();
 }
 function loginForm(){
-  $('login').innerHTML=`<h2>Anmelden</h2><p class="mut">Du bekommst einen Link per E-Mail. Ein Passwort brauchst du nicht.</p><div class="gw"><label for="em">E-Mail</label><input id="em" type="email" autocomplete="email"></div><button id="send" class="big" style="font-size:1rem;padding:12px;margin-top:12px">Link senden</button><p id="msg" class="mut"></p>`;
-  $('send').onclick=async()=>{
-    const e=$('em').value.trim();if(!e)return;
-    const {error}=await sb.auth.signInWithOtp({email:e,options:{emailRedirectTo:location.origin+location.pathname}});
-    $('msg').textContent=error?'Fehler: '+error.message:'Link ist unterwegs. Öffne ihn auf diesem Gerät.';
+  $('login').innerHTML=`<h2>Anmelden</h2><p class="mut">Melde dich mit deinem Google-Konto an. Deine Einträge sind danach auf allen Geräten gleich.</p><button id="g" class="big" style="font-size:1rem;padding:12px;margin-top:12px">Mit Google anmelden</button><p id="msg" class="mut"></p>`;
+  $('g').onclick=async()=>{
+    const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});
+    if(error)$('msg').textContent='Fehler: '+error.message;
   };
 }
 $('out').onclick=()=>sb.auth.signOut();
